@@ -6,11 +6,14 @@ const router = express.Router();
 // Controller for lifafa routes
 const LifafaController = require('./controller');
 
-router.post('/verifyUpiId', LifafaController.verifyUpiId);
-router.post('/create', LifafaController.createLifafa);
-router.post('/claim', LifafaController.claimLifafa);
+// Auth middleware
+const { authenticateKey } = require('./middleware');
 
-router.get('/:lifafaId', LifafaController.getLifafa);
-router.get('/', LifafaController.getAllLifafa);
+router.post('/verifyUpiId', authenticateKey, LifafaController.verifyUpiId);
+router.post('/create', authenticateKey, LifafaController.createLifafa);
+router.post('/claim', authenticateKey, LifafaController.claimLifafa);
+
+router.get('/:lifafaId', authenticateKey, LifafaController.getLifafa);
+router.get('/', authenticateKey, LifafaController.getAllLifafa);
 
 module.exports = router;

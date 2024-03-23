@@ -81,7 +81,6 @@ module.exports.claimLifafa = async (req, res) => {
     const { upiId, lifafaId, accountName } = req.body;
 
     const lifafa = await LIFAFA.findById(lifafaId);
-    console.log('lifafa:', lifafa);
 
     if (!lifafa) throw new ApiError('Invalid Lifafa');
     if (lifafa?.remaining <= 0) throw new ApiError('All lifafas claimed');
@@ -89,24 +88,10 @@ module.exports.claimLifafa = async (req, res) => {
     if (!lifafa.remaining) lifafa.remaining = lifafa.count;
     if (!lifafa.claimedBy) lifafa.claimedBy = [];
 
-    const alreadyClaimed = lifafa.claimedBy.some(
-      (el) => el.upiId === upiId || el.accountName === accountName
-    );
+    const alreadyClaimed = lifafa.claimedBy.some((el) => el.upiId === upiId);
     if (alreadyClaimed) throw new ApiError('Already claimed');
 
-    const MAX_DEVIATION = 35;
-    const randomPercent = Math.floor(Math.random() * 2 * MAX_DEVIATION);
-
-    const idealAmount = lifafa.remainingAmount / lifafa.remaining;
-    const deviatedAmount = (idealAmount * randomPercent) / 200.0;
-
-    let claimedAmount =
-      lifafa.remaining === 1
-        ? lifafa.remainingAmount
-        : randomPercent < MAX_DEVIATION
-        ? idealAmount + deviatedAmount
-        : idealAmount - deviatedAmount;
-    claimedAmount = parseFloat(claimedAmount.toFixed(2));
+    let claimedAmount = calculateClaimedAmount(lifafa);
 
     const remaining = lifafa.remaining - 1;
     const remainingAmount = parseFloat(
@@ -178,14 +163,27 @@ module.exports.getAllLifafa = async (req, res) => {
   }
 };
 
-// Generates random UUID of given length
-function generateId(length = undefined) {
-  // get uuid
-  let uuid = uuidv4();
-  // remove - decorator
-  uuid = uuid.replace(/-/g, '');
-  // return substring of given length
-  return uuid.substring(0, length);
+function calculateClaimedAmount(lifafa) {
+  const MAX_DEVIATION = Math.floor((lifafa.initialAmount / lifafa.count) * 0.2);
+
+  // Calculate the average amount per lifafa
+  const averageAmount = lifafa.remainingAmount / lifafa.remaining;
+
+  // Generate a random amount to add to the average
+  const randomAmount =
+    Math.floor(Math.random() * (MAX_DEVIATION * 2 + 1)) - MAX_DEVIATION;
+
+  // Calculate the claimed amount
+  let claimedAmount =
+    lifafa.remaining <= 1
+      ? lifafa.remainingAmount
+      : parseFloat(averageAmount + randomAmount).toFixed(2);
+
+  // Ensure claimed amount is not negative and not greater than remaining amount
+  claimedAmount = Math.max(claimedAmount, 0);
+  claimedAmount = Math.min(claimedAmount, lifafa.remainingAmount);
+
+  return claimedAmount;
 }
 
 class ApiError {
